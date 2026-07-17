@@ -1,9 +1,15 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import re
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="🎬 VOD & IPTV Platformu", page_icon="🍿", layout="wide")
+
+# Oturum Durumu (Hangi videonun oynatıldığını hafızada tutmak için)
+if "playing_url" not in st.session_state:
+    st.session_state.playing_url = None
+    st.session_state.playing_title = None
 
 st.markdown("""
     <style>
@@ -24,11 +30,9 @@ def parse_m3u(file_content):
     while i < len(lines):
         line = lines[i].strip()
         if line.startswith('#EXTINF'):
-            # Kapak Fotoğrafını (Logo) Çek ve Doğrula
+            # Kapak Fotoğrafını Doğrula
             logo_match = re.search(r'tvg-logo="(.*?)"', line)
             logo = logo_match.group(1).strip() if logo_match and logo_match.group(1) else ""
-            
-            # Eğer logo bir web adresi değilse varsayılan görseli ata
             if not logo.startswith("http"):
                 logo = "https://via.placeholder.com/300x450.png?text=Kapak+Yok"
             
@@ -50,7 +54,7 @@ def parse_m3u(file_content):
         i += 1
     return pd.DataFrame(data)
 
-# Sol Menü (Sidebar)
+# --- SOL MENÜ AYARLARI ---
 st.sidebar.header("📂 Dosya Yükleme")
 uploaded_file = st.sidebar.file_uploader("M3U Dosyanızı Yükleyin", type=["m3u", "m3u8"])
 
@@ -62,42 +66,101 @@ if uploaded_file is not None:
     st.sidebar.markdown("---")
     
     st.sidebar.header("🔍 İçerik Filtreleme")
-    
     categories = sorted(df['Kategori'].unique().tolist())
     selected_category = st.sidebar.selectbox("Kategori Seçin", ["Tümü"] + categories)
-    
     search_query = st.sidebar.text_input("Film / Dizi veya Kanal Ara")
     
     if selected_category != "Tümü":
         df = df[df['Kategori'] == selected_category]
     if search_query:
         df = df[df['İsim'].str.contains(search_query, case=False, na=False)]
+
+    # --- OYNATICI ALANI (EN ÜSTTE) ---
+    if st.session_state.playing_url:
+        st.markdown(f"### 📺 Şu an oynatılıyor: **{st.session_state.playing_title}**")
         
+        # HLS.js içeren özel HTML video oynatıcı
+        player_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+            <style>
+                body {{ margin: 0; background-color: #0e1117; display: flex; justify-content: center; }}
+                video {{ width: 100%; max-height: 600px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }}
+            </style>
+        </head>
+        <body>
+            <video id="videoPlayer" controls autoplay></video>
+            <script>
+                var video = document.getElementById('videoPlayer');
+                var sourceUrl = "{st.session_state.playing_url}";
+                
+                // Eğer format m3u8 veya ts ise HLS.js kullan
+                if (Hls.isSupported()) {{
+                    var hls = new Hls({{
+                        debug: false,
+                        enableWorker: true
+                    }});
+                    hls.loadSource(sourceUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {{
+                        video.play();
+                    }});
+                }} 
+                // Tarayıcı HLS'yi yerel destekliyorsa (Safari gibi) veya mp4 ise normal oynat
+                else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
+                    video.src = sourceUrl;
+                    video.addEventListener('loadedmetadata', function() {{
+                        video.play();
+                    }});
+                }} else {{
+                    // Fallback normal formatlar (.mkv, .mp4)
+                    video.src = sourceUrl;
+                    video.play();
+                }}
+            </script>
+        </body>
+        </html>
+        """
+        # HLS Player'ı Ekrana Bas
+        components.html(player_html, height=500, scrolling=False)
+        
+        if st.button("❌ Oynatıcıyı Kapat"):
+            st.session_state.playing_url = None
+            st.session_state.playing_title = None
+            st.rerun()
+            
+        st.markdown("---")
+
+    # --- İÇERİK LİSTESİ ---
     st.subheader(f"Bulunan İçerik Sayısı: {len(df)}")
     
     display_limit = 100
     if len(df) > display_limit:
-        st.warning(f"Performans için sadece ilk {display_limit} sonuç gösteriliyor. Lütfen aramanızı daraltın.")
+        st.warning(f"Performans için sadece ilk {display_limit} sonuç gösteriliyor. Aramanızı daraltabilirsiniz.")
     
     cols = st.columns(4)
     
     for index, row in df.head(display_limit).reset_index(drop=True).iterrows():
         col = cols[index % 4]
         with col:
-            # GÖRSEL YÜKLEME (Hata Yakalama Ekli)
+            # Görsel
             try:
                 st.image(row["Logo"], use_container_width=True)
             except Exception:
-                st.image("https://via.placeholder.com/300x450.png?text=Gorsel+Hatasi", use_container_width=True)
+                st.image("https://via.placeholder.com/300x450.png?text=Gorsel+Yok", use_container_width=True)
             
+            # Başlık
             st.markdown(f'<div class="film-title">{row["İsim"]}</div>', unsafe_allow_html=True)
             
+            # İzle Butonu - Oturum (Session) durumunu günceller
             if st.button("▶ İzle", key=f"watch_{index}"):
-                try:
-                    st.video(row["URL"])
-                except Exception:
-                    st.error("Bu yayın formatı tarayıcı içi oynatıcıyı desteklemiyor.")
+                st.session_state.playing_url = row["URL"]
+                st.session_state.playing_title = row["İsim"]
+                st.rerun() # Sayfayı yenileyerek üstte videonun çıkmasını sağlar
             
+            # İndir Butonu
             st.markdown(
                 f"""
                 <a href="{row['URL']}" download target="_blank" style="text-decoration: none;">
@@ -111,4 +174,3 @@ if uploaded_file is not None:
             st.markdown("<hr/>", unsafe_allow_html=True)
 else:
     st.info("👈 Lütfen başlamak için sol menüden M3U dosyanızı yükleyin.")
-    st.image("https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&w=800&q=80", use_container_width=True)
