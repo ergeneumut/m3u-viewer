@@ -65,13 +65,13 @@ def parse_m3u(file_content):
     return pd.DataFrame(data)
 
 # --- SEPET VE TOPLU İNDİRME ALANI (SOL MENÜ ÜSTÜ) ---
-st.sidebar.header("🛒 İndirme Sepeti")
+# --- SEPET VE TOPLU İNDİRME ALANI (SOL MENÜ) ---
+st.sidebar.header("🛒 İndirme Otomasyonu")
 sepet_sayisi = len(st.session_state.download_cart)
 
 if sepet_sayisi > 0:
     st.sidebar.info(f"Sepetinizde {sepet_sayisi} adet içerik var.")
     
-    # Seçili içeriklerin isimlerini göster
     with st.sidebar.expander("Sepetteki İçerikler", expanded=False):
         for isim in st.session_state.download_cart.values():
             st.markdown(f"- {isim}")
@@ -80,21 +80,52 @@ if sepet_sayisi > 0:
         st.session_state.download_cart = {}
         st.rerun()
         
-    # Linkleri birleştirip txt formatına dönüştür
-    linkler_metni = "\n".join(st.session_state.download_cart.keys())
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🚀 Otomatik İndirme Araçları")
+
+    # 1. SEÇENEK: IDM İLE TAM OTOMASYON (Klasör ve İsimlendirme Destekli)
+    bat_lines = ["@echo off", "echo IDM Otomatik Indirme Baslatiliyor...", ""]
+    
+    for url, isim in st.session_state.download_cart.items():
+        # Windows klasör isimlerinde yasaklı karakterleri temizle (/, \, :, *, ?, ", <, >, |)
+        guvenli_isim = re.sub(r'[\\/*?:"<>|]', '', isim).strip()
+        
+        # IDMan.exe'ye linki, kayıt klasörünü (/p) ve dosya adını (/f) parametre olarak gönder
+        bat_lines.append(f'echo Indiriliyor: {guvenli_isim}')
+        bat_lines.append(f'start "" "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe" /d "{url}" /p "C:\\Filmler\\{guvenli_isim}" /f "{guvenli_isim}.ts" /a')
+    
+    bat_lines.append("")
+    bat_lines.append("echo Tum indirmeler IDM sirasina eklendi!")
+    bat_lines.append("pause")
+    
+    bat_content = "\n".join(bat_lines)
     
     st.sidebar.download_button(
-        label="📥 qBittorrent/IDM İçin Linkleri İndir (.txt)",
-        data=linkler_metni,
-        file_name="toplu_indirme_listesi.txt",
-        mime="text/plain",
-        help="İndirdiğiniz bu txt dosyasının içindeki linkleri kopyalayıp qBittorrent veya IDM'ye yapıştırabilirsiniz."
+        label="🟢 IDM Otomasyon Dosyasını İndir (.bat)",
+        data=bat_content,
+        file_name="IDM_Otomatik_Indir.bat",
+        mime="application/x-bat",
+        help="Bu bat dosyasını indirip çift tıkladığınızda klasörler oluşur ve IDM indirmeye başlar."
     )
-else:
-    st.sidebar.write("Sepetiniz boş. Filmlerin altındaki kutucukları işaretleyerek listeye ekleyebilirsiniz.")
 
-st.sidebar.markdown("---")
+    # 2. SEÇENEK: WINDOWS CMD İLE (Programsız) İNDİRME
+    cmd_lines = ["@echo off", "echo Windows CMD ile Indirme Baslatiliyor...", ""]
+    for url, isim in st.session_state.download_cart.items():
+        guvenli_isim = re.sub(r'[\\/*?:"<>|]', '', isim).strip()
+        cmd_lines.append(f'mkdir "C:\\Filmler\\{guvenli_isim}" 2>nul')
+        cmd_lines.append(f'curl -o "C:\\Filmler\\{guvenli_isim}\\{guvenli_isim}.ts" "{url}"')
+    
+    cmd_lines.append("echo Indirme tamamlandi!")
+    cmd_lines.append("pause")
+    cmd_content = "\n".join(cmd_lines)
 
+    st.sidebar.download_button(
+        label="🖥️ CMD (Programsız) Otomasyon İndir (.bat)",
+        data=cmd_content,
+        file_name="CMD_Otomatik_Indir.bat",
+        mime="application/x-bat",
+        help="Bilgisayarınızda ek bir program yoksa, Windows kendi başına klasörleri açıp indirmeyi yapar."
+    )
 # --- DOSYA YÜKLEME VE FİLTRELEME ---
 st.sidebar.header("📂 Dosya Yükleme")
 uploaded_file = st.sidebar.file_uploader("M3U Dosyanızı Yükleyin", type=["m3u", "m3u8"])
