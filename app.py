@@ -3,7 +3,7 @@ import pandas as pd
 import re
 
 # Sayfa Yapılandırması (Geniş ekran, özel başlık ve ikon)
-st.set_page_config(page_title="🎬 VOD & IPTV Platformu", page_icon="🍿", layout="wide")
+st.set_page_config(page_title="🎬 Film/Dizi Platformu", page_icon="🍿", layout="wide")
 
 # CSS ile biraz daha estetik bir görünüm katalım
 st.markdown("""
@@ -14,7 +14,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🍿 Film, Dizi ve Canlı TV Merkezi")
+st.title("🍿 Film, Dizi ve Canlı TV")
 st.markdown("İçeriklerinizi arayın, filtreleyin, izleyin veya cihazınıza tek tıkla indirin.")
 
 # M3U Dosyasını Ayrıştıran Fonksiyon
@@ -117,5 +117,5 @@ if uploaded_file is not None:
             st.markdown("<hr/>", unsafe_allow_html=True)
 else:
     # Dosya yüklenmediğinde gösterilecek ekran
-    st.info("👈 Lütfen başlamak için sol menüden **playlist_ruCZsxbJ (1).m3u** veya benzeri bir dosyanızı yükleyin.")
+    st.info("👈 Lütfen başlamak için sol menüden .m3u yükleyin.")
     st.image("https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&w=800&q=80", use_container_width=True)
