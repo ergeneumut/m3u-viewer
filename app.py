@@ -1,14 +1,20 @@
 import streamlit as st
 import pandas as pd
 import re
+import math
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="🎬 VOD & IPTV Platformu", page_icon="🍿", layout="wide")
 
-# İndirme Sepeti İçin Oturum Hafızası (Session State)
+# Oturum Hafızası (Session State) Ayarları
 if "download_cart" not in st.session_state:
     st.session_state.download_cart = {}
+if "current_page" not in st.session_state:
+    st.session_state.current_page = 1
+if "last_filter" not in st.session_state:
+    st.session_state.last_filter = ("", "Tümü")
 
+# Özel CSS Tasarımı
 st.markdown("""
     <style>
     .film-title { font-size: 16px; font-weight: bold; margin-top: 10px; height: 50px; overflow: hidden; text-overflow: ellipsis; }
@@ -23,18 +29,22 @@ st.markdown("""
         text-decoration: none !important;
         font-weight: bold;
         color: white !important;
-        font-size: 14px;
+        font-size: 13px;
         transition: 0.3s;
     }
     .watch-btn { background-color: #E50914; border: 1px solid #E50914; }
-    .watch-btn:hover { background-color: #b20710; border-color: #b20710; }
+    .watch-btn:hover { background-color: #b20710; }
+    
+    .potplayer-btn { background-color: #6a0dad; border: 1px solid #6a0dad; }
+    .potplayer-btn:hover { background-color: #4b0082; }
+    
     .download-btn { background-color: #28a745; border: 1px solid #28a745; }
-    .download-btn:hover { background-color: #218838; border-color: #218838; }
+    .download-btn:hover { background-color: #218838; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🍿 Film, Dizi ve Canlı TV Merkezi")
-st.markdown("İçerikleri doğrudan izleyin, indirin veya toplu indirme için sepetinize ekleyin.")
+st.markdown("İçeriklerinizi arayın, çoklu ses seçeneği için PotPlayer'da izleyin veya toplu indirin.")
 
 @st.cache_data
 def parse_m3u(file_content):
@@ -64,7 +74,6 @@ def parse_m3u(file_content):
         i += 1
     return pd.DataFrame(data)
 
-# --- SEPET VE TOPLU İNDİRME ALANI (SOL MENÜ ÜSTÜ) ---
 # --- SEPET VE TOPLU İNDİRME ALANI (SOL MENÜ) ---
 st.sidebar.header("🛒 İndirme Otomasyonu")
 sepet_sayisi = len(st.session_state.download_cart)
@@ -83,14 +92,10 @@ if sepet_sayisi > 0:
     st.sidebar.markdown("---")
     st.sidebar.subheader("🚀 Otomatik İndirme Araçları")
 
-    # 1. SEÇENEK: IDM İLE TAM OTOMASYON (Klasör ve İsimlendirme Destekli)
+    # IDM Otomasyon Dosyası
     bat_lines = ["@echo off", "echo IDM Otomatik Indirme Baslatiliyor...", ""]
-    
     for url, isim in st.session_state.download_cart.items():
-        # Windows klasör isimlerinde yasaklı karakterleri temizle (/, \, :, *, ?, ", <, >, |)
         guvenli_isim = re.sub(r'[\\/*?:"<>|]', '', isim).strip()
-        
-        # IDMan.exe'ye linki, kayıt klasörünü (/p) ve dosya adını (/f) parametre olarak gönder
         bat_lines.append(f'echo Indiriliyor: {guvenli_isim}')
         bat_lines.append(f'start "" "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe" /d "{url}" /p "C:\\Filmler\\{guvenli_isim}" /f "{guvenli_isim}.ts" /a')
     
@@ -98,34 +103,30 @@ if sepet_sayisi > 0:
     bat_lines.append("echo Tum indirmeler IDM sirasina eklendi!")
     bat_lines.append("pause")
     
-    bat_content = "\n".join(bat_lines)
-    
     st.sidebar.download_button(
-        label="🟢 IDM Otomasyon Dosyasını İndir (.bat)",
-        data=bat_content,
+        label="🟢 IDM Otomasyon İndir (.bat)",
+        data="\n".join(bat_lines),
         file_name="IDM_Otomatik_Indir.bat",
-        mime="application/x-bat",
-        help="Bu bat dosyasını indirip çift tıkladığınızda klasörler oluşur ve IDM indirmeye başlar."
+        mime="application/x-bat"
     )
 
-    # 2. SEÇENEK: WINDOWS CMD İLE (Programsız) İNDİRME
+    # CMD Otomasyon Dosyası
     cmd_lines = ["@echo off", "echo Windows CMD ile Indirme Baslatiliyor...", ""]
     for url, isim in st.session_state.download_cart.items():
         guvenli_isim = re.sub(r'[\\/*?:"<>|]', '', isim).strip()
         cmd_lines.append(f'mkdir "C:\\Filmler\\{guvenli_isim}" 2>nul')
         cmd_lines.append(f'curl -o "C:\\Filmler\\{guvenli_isim}\\{guvenli_isim}.ts" "{url}"')
-    
-    cmd_lines.append("echo Indirme tamamlandi!")
     cmd_lines.append("pause")
-    cmd_content = "\n".join(cmd_lines)
-
+    
     st.sidebar.download_button(
-        label="🖥️ CMD (Programsız) Otomasyon İndir (.bat)",
-        data=cmd_content,
+        label="🖥️ CMD Otomasyon İndir (.bat)",
+        data="\n".join(cmd_lines),
         file_name="CMD_Otomatik_Indir.bat",
-        mime="application/x-bat",
-        help="Bilgisayarınızda ek bir program yoksa, Windows kendi başına klasörleri açıp indirmeyi yapar."
+        mime="application/x-bat"
     )
+
+st.sidebar.markdown("---")
+
 # --- DOSYA YÜKLEME VE FİLTRELEME ---
 st.sidebar.header("📂 Dosya Yükleme")
 uploaded_file = st.sidebar.file_uploader("M3U Dosyanızı Yükleyin", type=["m3u", "m3u8"])
@@ -139,52 +140,86 @@ if uploaded_file is not None:
     selected_category = st.sidebar.selectbox("Kategori Seçin", ["Tümü"] + categories)
     search_query = st.sidebar.text_input("Film / Dizi veya Kanal Ara")
     
+    # Arama veya kategori değiştiğinde sayfayı 1. sayfaya sıfırla
+    if (search_query, selected_category) != st.session_state.last_filter:
+        st.session_state.current_page = 1
+        st.session_state.last_filter = (search_query, selected_category)
+    
     if selected_category != "Tümü":
         df = df[df['Kategori'] == selected_category]
     if search_query:
         df = df[df['İsim'].str.contains(search_query, case=False, na=False)]
 
-    st.subheader(f"Bulunan İçerik Sayısı: {len(df)}")
+    total_items = len(df)
+    st.subheader(f"Bulunan İçerik Sayısı: {total_items}")
     
-    display_limit = 100
-    if len(df) > display_limit:
-        st.warning(f"Performans için sadece ilk {display_limit} sonuç gösteriliyor.")
+    # --- SAYFALANDIRMA (PAGINATION) SİSTEMİ ---
+    items_per_page = 100
+    total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
     
-    cols = st.columns(4)
-    
-    for index, row in df.head(display_limit).reset_index(drop=True).iterrows():
-        col = cols[index % 4]
-        with col:
-            try:
-                st.image(row["Logo"], use_container_width=True)
-            except Exception:
-                st.image("https://via.placeholder.com/300x450.png?text=Gorsel+Yok", use_container_width=True)
-            
-            st.markdown(f'<div class="film-title">{row["İsim"]}</div>', unsafe_allow_html=True)
-            
-            # Seçim Kutucuğu (Sepete Ekle/Çıkar)
-            url = row["URL"]
-            isim = row["İsim"]
-            is_checked = url in st.session_state.download_cart
-            
-            if st.checkbox("Sepete Ekle", value=is_checked, key=f"check_{index}"):
-                st.session_state.download_cart[url] = isim
-            else:
-                if url in st.session_state.download_cart:
-                    del st.session_state.download_cart[url]
-            
-            # HTML İle İzle ve Tekli İndir Butonları
-            st.markdown(
-                f"""
-                <a href="{row['URL']}" target="_blank" class="action-btn watch-btn">
-                    ▶ İzle
-                </a>
-                <a href="{row['URL']}" download class="action-btn download-btn">
-                    📥 Tekli İndir
-                </a>
-                <hr/>
-                """,
-                unsafe_allow_html=True
+    if total_items > 0:
+        # Sayfa Seçici Menü
+        col_page1, col_page2, col_page3 = st.columns([1, 2, 1])
+        with col_page2:
+            st.session_state.current_page = st.number_input(
+                f"Sayfa Seçin (Toplam: {total_pages})", 
+                min_value=1, 
+                max_value=total_pages, 
+                value=st.session_state.current_page,
+                step=1
             )
+            
+        st.markdown("---")
+
+        # Geçerli sayfanın verilerini hesapla
+        start_idx = (st.session_state.current_page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        df_page = df.iloc[start_idx:end_idx]
+        
+        # İçerik Izgarası (Grid)
+        cols = st.columns(4)
+        
+        for index, row in df_page.reset_index(drop=True).iterrows():
+            col = cols[index % 4]
+            with col:
+                # Görsel
+                try:
+                    st.image(row["Logo"], use_container_width=True)
+                except Exception:
+                    st.image("https://via.placeholder.com/300x450.png?text=Gorsel+Yok", use_container_width=True)
+                
+                # Başlık
+                st.markdown(f'<div class="film-title">{row["İsim"]}</div>', unsafe_allow_html=True)
+                
+                # Seçim Kutucuğu (Sepete Ekle)
+                url = row["URL"]
+                isim = row["İsim"]
+                is_checked = url in st.session_state.download_cart
+                
+                # Key'i eşsiz yapmak için start_idx + index kullanıyoruz
+                if st.checkbox("🛒 Sepete Ekle", value=is_checked, key=f"check_{start_idx + index}"):
+                    st.session_state.download_cart[url] = isim
+                else:
+                    if url in st.session_state.download_cart:
+                        del st.session_state.download_cart[url]
+                
+                # Butonlar
+                st.markdown(
+                    f"""
+                    <a href="{row['URL']}" target="_blank" class="action-btn watch-btn">
+                        ▶ Tarayıcıda İzle
+                    </a>
+                    <a href="potplayer://{row['URL']}" class="action-btn potplayer-btn">
+                        📺 PotPlayer'da Aç (Çift Ses)
+                    </a>
+                    <a href="{row['URL']}" download class="action-btn download-btn">
+                        📥 Tekli İndir
+                    </a>
+                    <hr/>
+                    """,
+                    unsafe_allow_html=True
+                )
+    else:
+        st.warning("Aradığınız kriterlere uygun içerik bulunamadı.")
 else:
     st.info("👈 Lütfen başlamak için sol menüden M3U dosyanızı yükleyin.")
