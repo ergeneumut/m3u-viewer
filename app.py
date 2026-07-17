@@ -2,9 +2,11 @@ import streamlit as st
 import pandas as pd
 import re
 import math
+import os
+from urllib.parse import urlparse
 
 # Sayfa Yapılandırması
-st.set_page_config(page_title="🎬 Film Platformu", page_icon="🍿", layout="wide")
+st.set_page_config(page_title="🎬 VOD & IPTV Platformu", page_icon="🍿", layout="wide")
 
 # Oturum Hafızası (Session State) Ayarları
 if "download_cart" not in st.session_state:
@@ -41,7 +43,6 @@ st.markdown("""
     .download-btn { background-color: #28a745; border: 1px solid #28a745; }
     .download-btn:hover { background-color: #218838; }
     
-    /* Streamlit Orijinal Butonlarını Düzenleme (Sepete Ekle Butonu İçin) */
     .stButton>button { width: 100%; font-weight: bold; border-radius: 5px; }
     </style>
 """, unsafe_allow_html=True)
@@ -77,6 +78,15 @@ def parse_m3u(file_content):
         i += 1
     return pd.DataFrame(data)
 
+# URL'den orijinal dosya formatını algılayan fonksiyon
+def get_file_extension(url):
+    parsed_path = urlparse(url).path
+    ext = os.path.splitext(parsed_path)[1]
+    # Eğer geçerli bir uzantı bulursa (.mkv, .mp4, .ts) onu kullan, bulamazsa .mkv varsay
+    if ext and len(ext) <= 5:
+        return ext
+    return ".mkv"
+
 # --- SEPET VE TOPLU İNDİRME ALANI (SOL MENÜ) ---
 st.sidebar.header("🛒 İndirme Otomasyonu")
 sepet_sayisi = len(st.session_state.download_cart)
@@ -90,17 +100,19 @@ if sepet_sayisi > 0:
             
     if st.sidebar.button("🗑️ Sepeti Boşalt"):
         st.session_state.download_cart = {}
-        st.rerun() # Sayfayı anında yenile
+        st.rerun()
         
     st.sidebar.markdown("---")
     st.sidebar.subheader("🚀 Otomatik İndirme Araçları")
 
-    # IDM Otomasyon Dosyası
+    # IDM Otomasyon Dosyası (Dinamik Uzantı)
     bat_lines = ["@echo off", "echo IDM Otomatik Indirme Baslatiliyor...", ""]
     for url, isim in st.session_state.download_cart.items():
         guvenli_isim = re.sub(r'[\\/*?:"<>|]', '', isim).strip()
-        bat_lines.append(f'echo Indiriliyor: {guvenli_isim}')
-        bat_lines.append(f'start "" "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe" /d "{url}" /p "C:\\Filmler\\{guvenli_isim}" /f "{guvenli_isim}.ts" /a')
+        uzanti = get_file_extension(url) # Gerçek formatı bul
+        
+        bat_lines.append(f'echo Indiriliyor: {guvenli_isim}{uzanti}')
+        bat_lines.append(f'start "" "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe" /d "{url}" /p "C:\\Filmler\\{guvenli_isim}" /f "{guvenli_isim}{uzanti}" /a')
     
     bat_lines.append("")
     bat_lines.append("echo Tum indirmeler IDM sirasina eklendi!")
@@ -113,12 +125,14 @@ if sepet_sayisi > 0:
         mime="application/x-bat"
     )
 
-    # CMD Otomasyon Dosyası
+    # CMD Otomasyon Dosyası (Dinamik Uzantı)
     cmd_lines = ["@echo off", "echo Windows CMD ile Indirme Baslatiliyor...", ""]
     for url, isim in st.session_state.download_cart.items():
         guvenli_isim = re.sub(r'[\\/*?:"<>|]', '', isim).strip()
+        uzanti = get_file_extension(url) # Gerçek formatı bul
+        
         cmd_lines.append(f'mkdir "C:\\Filmler\\{guvenli_isim}" 2>nul')
-        cmd_lines.append(f'curl -o "C:\\Filmler\\{guvenli_isim}\\{guvenli_isim}.ts" "{url}"')
+        cmd_lines.append(f'curl -o "C:\\Filmler\\{guvenli_isim}\\{guvenli_isim}{uzanti}" "{url}"')
     cmd_lines.append("pause")
     
     st.sidebar.download_button(
@@ -145,7 +159,6 @@ if uploaded_file is not None:
     selected_category = st.sidebar.selectbox("Kategori Seçin", ["Tümü"] + categories)
     search_query = st.sidebar.text_input("Film / Dizi veya Kanal Ara")
     
-    # Arama veya kategori değiştiğinde sayfayı 1. sayfaya sıfırla
     if (search_query, selected_category) != st.session_state.last_filter:
         st.session_state.current_page = 1
         st.session_state.last_filter = (search_query, selected_category)
@@ -184,19 +197,16 @@ if uploaded_file is not None:
         for index, row in df_page.reset_index(drop=True).iterrows():
             col = cols[index % 4]
             with col:
-                # Görsel
                 try:
                     st.image(row["Logo"], use_container_width=True)
                 except Exception:
                     st.image("https://via.placeholder.com/300x450.png?text=Gorsel+Yok", use_container_width=True)
                 
-                # Başlık
                 st.markdown(f'<div class="film-title">{row["İsim"]}</div>', unsafe_allow_html=True)
                 
                 url = row["URL"]
                 isim = row["İsim"]
                 
-                # Diğer HTML Butonları
                 st.markdown(
                     f"""
                     <a href="{url}" target="_blank" class="action-btn watch-btn">
@@ -212,15 +222,14 @@ if uploaded_file is not None:
                     unsafe_allow_html=True
                 )
                 
-                # YENİ SİSTEM: Anında Yenilenen (Rerun) Sepet Butonları
                 if url in st.session_state.download_cart:
                     if st.button("❌ Sepetten Çıkar", key=f"out_{hash(url)}", use_container_width=True):
                         del st.session_state.download_cart[url]
-                        st.rerun() # Sayfayı yenileyerek sol menüye güncel sayıyı yollar
+                        st.rerun() 
                 else:
                     if st.button("🛒 Sepete Ekle", key=f"in_{hash(url)}", use_container_width=True):
                         st.session_state.download_cart[url] = isim
-                        st.rerun() # Sayfayı yenileyerek sol menüye güncel sayıyı yollar
+                        st.rerun() 
                         
                 st.markdown("<hr/>", unsafe_allow_html=True)
     else:
