@@ -1,26 +1,38 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import re
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="🎬 VOD & IPTV Platformu", page_icon="🍿", layout="wide")
 
-# Oturum Durumu (Hangi videonun oynatıldığını hafızada tutmak için)
-if "playing_url" not in st.session_state:
-    st.session_state.playing_url = None
-    st.session_state.playing_title = None
-
+# Özel CSS Tasarımı (HTML Butonları İçin)
 st.markdown("""
     <style>
     .film-title { font-size: 16px; font-weight: bold; margin-top: 10px; height: 50px; overflow: hidden; text-overflow: ellipsis; }
-    .stButton>button { width: 100%; background-color: #E50914; color: white; border-radius: 5px; }
-    .stButton>button:hover { background-color: #b20710; color: white; border-color: #b20710; }
+    
+    .action-btn {
+        display: block;
+        width: 100%;
+        text-align: center;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 8px;
+        text-decoration: none !important;
+        font-weight: bold;
+        color: white !important;
+        transition: 0.3s;
+    }
+    
+    .watch-btn { background-color: #E50914; border: 1px solid #E50914; }
+    .watch-btn:hover { background-color: #b20710; border-color: #b20710; }
+    
+    .download-btn { background-color: #28a745; border: 1px solid #28a745; }
+    .download-btn:hover { background-color: #218838; border-color: #218838; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🍿 Film, Dizi ve Canlı TV Merkezi")
-st.markdown("İçeriklerinizi arayın, filtreleyin, izleyin veya cihazınıza tek tıkla indirin.")
+st.markdown("İçeriklerinizi arayın, filtreleyin, yeni sekmede izleyin veya cihazınıza doğrudan indirin.")
 
 @st.cache_data
 def parse_m3u(file_content):
@@ -75,64 +87,6 @@ if uploaded_file is not None:
     if search_query:
         df = df[df['İsim'].str.contains(search_query, case=False, na=False)]
 
-    # --- OYNATICI ALANI (EN ÜSTTE) ---
-    if st.session_state.playing_url:
-        st.markdown(f"### 📺 Şu an oynatılıyor: **{st.session_state.playing_title}**")
-        
-        # HLS.js içeren özel HTML video oynatıcı
-        player_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-            <style>
-                body {{ margin: 0; background-color: #0e1117; display: flex; justify-content: center; }}
-                video {{ width: 100%; max-height: 600px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }}
-            </style>
-        </head>
-        <body>
-            <video id="videoPlayer" controls autoplay></video>
-            <script>
-                var video = document.getElementById('videoPlayer');
-                var sourceUrl = "{st.session_state.playing_url}";
-                
-                // Eğer format m3u8 veya ts ise HLS.js kullan
-                if (Hls.isSupported()) {{
-                    var hls = new Hls({{
-                        debug: false,
-                        enableWorker: true
-                    }});
-                    hls.loadSource(sourceUrl);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {{
-                        video.play();
-                    }});
-                }} 
-                // Tarayıcı HLS'yi yerel destekliyorsa (Safari gibi) veya mp4 ise normal oynat
-                else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
-                    video.src = sourceUrl;
-                    video.addEventListener('loadedmetadata', function() {{
-                        video.play();
-                    }});
-                }} else {{
-                    // Fallback normal formatlar (.mkv, .mp4)
-                    video.src = sourceUrl;
-                    video.play();
-                }}
-            </script>
-        </body>
-        </html>
-        """
-        # HLS Player'ı Ekrana Bas
-        components.html(player_html, height=500, scrolling=False)
-        
-        if st.button("❌ Oynatıcıyı Kapat"):
-            st.session_state.playing_url = None
-            st.session_state.playing_title = None
-            st.rerun()
-            
-        st.markdown("---")
-
     # --- İÇERİK LİSTESİ ---
     st.subheader(f"Bulunan İçerik Sayısı: {len(df)}")
     
@@ -154,23 +108,18 @@ if uploaded_file is not None:
             # Başlık
             st.markdown(f'<div class="film-title">{row["İsim"]}</div>', unsafe_allow_html=True)
             
-            # İzle Butonu - Oturum (Session) durumunu günceller
-            if st.button("▶ İzle", key=f"watch_{index}"):
-                st.session_state.playing_url = row["URL"]
-                st.session_state.playing_title = row["İsim"]
-                st.rerun() # Sayfayı yenileyerek üstte videonun çıkmasını sağlar
-            
-            # İndir Butonu
+            # HTML İle İzle ve İndir Butonları
             st.markdown(
                 f"""
-                <a href="{row['URL']}" download target="_blank" style="text-decoration: none;">
-                    <div style="background-color: #28a745; color: white; text-align: center; padding: 8px; border-radius: 5px; margin-top: 5px;">
-                        📥 Cihaza İndir
-                    </div>
+                <a href="{row['URL']}" target="_blank" class="action-btn watch-btn">
+                    ▶ Yeni Sekmede İzle
                 </a>
+                <a href="{row['URL']}" download class="action-btn download-btn">
+                    📥 Cihaza İndir
+                </a>
+                <hr/>
                 """,
                 unsafe_allow_html=True
             )
-            st.markdown("<hr/>", unsafe_allow_html=True)
 else:
     st.info("👈 Lütfen başlamak için sol menüden M3U dosyanızı yükleyin.")
