@@ -4,7 +4,7 @@ import re
 import math
 
 # Sayfa Yapılandırması
-st.set_page_config(page_title="🎬 VOD & IPTV Platformu", page_icon="🍿", layout="wide")
+st.set_page_config(page_title="🎬 Film Platformu", page_icon="🍿", layout="wide")
 
 # Oturum Hafızası (Session State) Ayarları
 if "download_cart" not in st.session_state:
@@ -40,6 +40,9 @@ st.markdown("""
     
     .download-btn { background-color: #28a745; border: 1px solid #28a745; }
     .download-btn:hover { background-color: #218838; }
+    
+    /* Streamlit Orijinal Butonlarını Düzenleme (Sepete Ekle Butonu İçin) */
+    .stButton>button { width: 100%; font-weight: bold; border-radius: 5px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -79,7 +82,7 @@ st.sidebar.header("🛒 İndirme Otomasyonu")
 sepet_sayisi = len(st.session_state.download_cart)
 
 if sepet_sayisi > 0:
-    st.sidebar.info(f"Sepetinizde {sepet_sayisi} adet içerik var.")
+    st.sidebar.success(f"Sepetinizde {sepet_sayisi} adet içerik var.")
     
     with st.sidebar.expander("Sepetteki İçerikler", expanded=False):
         for isim in st.session_state.download_cart.values():
@@ -87,7 +90,7 @@ if sepet_sayisi > 0:
             
     if st.sidebar.button("🗑️ Sepeti Boşalt"):
         st.session_state.download_cart = {}
-        st.rerun()
+        st.rerun() # Sayfayı anında yenile
         
     st.sidebar.markdown("---")
     st.sidebar.subheader("🚀 Otomatik İndirme Araçları")
@@ -124,6 +127,8 @@ if sepet_sayisi > 0:
         file_name="CMD_Otomatik_Indir.bat",
         mime="application/x-bat"
     )
+else:
+    st.sidebar.info("Sepetiniz şu an boş.")
 
 st.sidebar.markdown("---")
 
@@ -158,7 +163,6 @@ if uploaded_file is not None:
     total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
     
     if total_items > 0:
-        # Sayfa Seçici Menü
         col_page1, col_page2, col_page3 = st.columns([1, 2, 1])
         with col_page2:
             st.session_state.current_page = st.number_input(
@@ -171,12 +175,10 @@ if uploaded_file is not None:
             
         st.markdown("---")
 
-        # Geçerli sayfanın verilerini hesapla
         start_idx = (st.session_state.current_page - 1) * items_per_page
         end_idx = start_idx + items_per_page
         df_page = df.iloc[start_idx:end_idx]
         
-        # İçerik Izgarası (Grid)
         cols = st.columns(4)
         
         for index, row in df_page.reset_index(drop=True).iterrows():
@@ -191,34 +193,36 @@ if uploaded_file is not None:
                 # Başlık
                 st.markdown(f'<div class="film-title">{row["İsim"]}</div>', unsafe_allow_html=True)
                 
-                # Seçim Kutucuğu (Sepete Ekle)
                 url = row["URL"]
                 isim = row["İsim"]
-                is_checked = url in st.session_state.download_cart
                 
-                # Key'i eşsiz yapmak için start_idx + index kullanıyoruz
-                if st.checkbox("🛒 Sepete Ekle", value=is_checked, key=f"check_{start_idx + index}"):
-                    st.session_state.download_cart[url] = isim
-                else:
-                    if url in st.session_state.download_cart:
-                        del st.session_state.download_cart[url]
-                
-                # Butonlar
+                # Diğer HTML Butonları
                 st.markdown(
                     f"""
-                    <a href="{row['URL']}" target="_blank" class="action-btn watch-btn">
+                    <a href="{url}" target="_blank" class="action-btn watch-btn">
                         ▶ Tarayıcıda İzle
                     </a>
-                    <a href="potplayer://{row['URL']}" class="action-btn potplayer-btn">
+                    <a href="potplayer://{url}" class="action-btn potplayer-btn">
                         📺 PotPlayer'da Aç (Çift Ses)
                     </a>
-                    <a href="{row['URL']}" download class="action-btn download-btn">
+                    <a href="{url}" download class="action-btn download-btn">
                         📥 Tekli İndir
                     </a>
-                    <hr/>
                     """,
                     unsafe_allow_html=True
                 )
+                
+                # YENİ SİSTEM: Anında Yenilenen (Rerun) Sepet Butonları
+                if url in st.session_state.download_cart:
+                    if st.button("❌ Sepetten Çıkar", key=f"out_{hash(url)}", use_container_width=True):
+                        del st.session_state.download_cart[url]
+                        st.rerun() # Sayfayı yenileyerek sol menüye güncel sayıyı yollar
+                else:
+                    if st.button("🛒 Sepete Ekle", key=f"in_{hash(url)}", use_container_width=True):
+                        st.session_state.download_cart[url] = isim
+                        st.rerun() # Sayfayı yenileyerek sol menüye güncel sayıyı yollar
+                        
+                st.markdown("<hr/>", unsafe_allow_html=True)
     else:
         st.warning("Aradığınız kriterlere uygun içerik bulunamadı.")
 else:
