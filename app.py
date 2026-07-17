@@ -54,7 +54,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🍿 Film, Dizi ve Canlı TV Merkezi")
+st.title("🍿 Film")
 
 # --- M3U DOSYA ÇÖZÜCÜ ---
 @st.cache_data
@@ -151,7 +151,7 @@ if uploaded_file is not None:
                     
                     st.markdown(
                         f"""
-                        <a href="potplayer://{url}" class="action-btn potplayer-btn">📺 PotPlayer'da Aç</a>
+                        <a href="vlc://{url}" class="action-btn potplayer-btn">📺 VLC'de Aç</a>
                         <a href="{url}" download class="action-btn download-btn">📥 İndir</a>
                         """, unsafe_allow_html=True
                     )
