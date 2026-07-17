@@ -6,7 +6,7 @@ import os
 from urllib.parse import urlparse
 
 # --- SAYFA YAPILANDIRMASI ---
-st.set_page_config(page_title="🎬 VOD & IPTV Platformu", page_icon="🍿", layout="wide")
+st.set_page_config(page_title="🎬 Film", page_icon="🍿", layout="wide")
 
 # --- HAFIZA VE CALLBACK FONKSİYONLARI (Hata Çözümü) ---
 # st.rerun() hatasını önlemek için butonların arka planda tetikleyeceği fonksiyonlar
@@ -103,7 +103,7 @@ if uploaded_file is not None:
     st.sidebar.header("🔍 İçerik Filtreleme")
     categories = sorted(df['Kategori'].unique().tolist())
     selected_category = st.sidebar.selectbox("Kategori Seçin", ["Tümü"] + categories)
-    search_query = st.sidebar.text_input("Film / Dizi veya Kanal Ara")
+    search_query = st.sidebar.text_input("Film/Kanal Ara")
     
     if (search_query, selected_category) != st.session_state.last_filter:
         st.session_state.current_page = 1
@@ -117,11 +117,11 @@ if uploaded_file is not None:
     total_items = len(df)
     
     # --- ANA EKRAN SEKMELERİ (TABS) ---
-    tab1, tab2 = st.tabs(["🖼️ Afişli Görünüm (Katalog)", "📄 Yazılı Liste (Toplu Seçim)"])
+    tab1, tab2 = st.tabs(["🖼️ Katalog Görünümü", "📄 Yazılı Liste)"])
     
     # === SEKME 1: AFİŞLİ GÖRÜNÜM ===
     with tab1:
-        st.subheader(f"Bulunan İçerik Sayısı: {total_items}")
+        st.subheader(f"İçerik Sayısı: {total_items}")
         items_per_page = 100
         total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
         
@@ -151,9 +151,8 @@ if uploaded_file is not None:
                     
                     st.markdown(
                         f"""
-                        <a href="{url}" target="_blank" class="action-btn watch-btn">▶ Tarayıcıda İzle</a>
-                        <a href="potplayer://{url}" class="action-btn potplayer-btn">📺 PotPlayer'da Aç (Çift Ses)</a>
-                        <a href="{url}" download class="action-btn download-btn">📥 Tekli İndir</a>
+                        <a href="potplayer://{url}" class="action-btn potplayer-btn">📺 PotPlayer'da Aç</a>
+                        <a href="{url}" download class="action-btn download-btn">📥 İndir</a>
                         """, unsafe_allow_html=True
                     )
                     
@@ -161,7 +160,7 @@ if uploaded_file is not None:
                     if url in st.session_state.download_cart:
                         st.button("❌ Sepetten Çıkar", key=f"out_{hash(url)}", use_container_width=True, on_click=remove_from_cart, args=(url,))
                     else:
-                        st.button("🛒 Sepete Ekle", key=f"in_{hash(url)}", use_container_width=True, on_click=add_to_cart, args=(url, row["İsim"]))
+                        st.button("🛒 İndirme Sepetine Ekle", key=f"in_{hash(url)}", use_container_width=True, on_click=add_to_cart, args=(url, row["İsim"]))
                             
                     st.markdown("<hr/>", unsafe_allow_html=True)
         else:
@@ -169,8 +168,8 @@ if uploaded_file is not None:
 
     # === SEKME 2: YAZILI VE TOPLU SEÇİM LİSTESİ ===
     with tab2:
-        st.subheader("📄 Kategori Bazlı Hızlı Liste")
-        st.markdown("Seçtiğiniz kategoriye (veya aramaya) ait tüm filmleri fotoğrafsız olarak buradan görüp topluca seçebilirsiniz.")
+        st.subheader("📄 Kategori Bazlı Liste")
+        st.markdown("Seçtiğiniz kategoriye (veya aramaya) ait tüm filmleri buradan topluca seçebilirsiniz.")
         
         # Tümünü Seç ve Kaldır Butonları
         col_btn1, col_btn2 = st.columns(2)
@@ -221,19 +220,19 @@ if uploaded_file is not None:
         st.sidebar.button("🗑️ Sepeti Boşalt", use_container_width=True, on_click=clear_cart)
             
         st.sidebar.markdown("---")
-        st.sidebar.subheader("🚀 Otomatik İndirme Araçları")
+        st.sidebar.subheader("🚀 İndirme Araçları")
 
-        # 1. Salt Linkler (.TXT) İndirme Özelliği
+        # 1. Link (.txt) Dosyası İndirme
         txt_content = "\n".join(st.session_state.download_cart.keys())
         st.sidebar.download_button(
-            label="📝 Salt Linkleri İndir (.txt)",
+            label="📝 Linkleri İndir (.txt)",
             data=txt_content,
             file_name="secili_mkv_linkleri.txt",
             mime="text/plain",
             help="Seçtiğiniz tüm filmlerin indirme linklerini alt alta text dosyası olarak verir."
         )
 
-        # 2. IDM Otomasyon
+        # 2. IDM İndirme
         bat_lines = ["@echo off", "echo IDM Otomatik Indirme Baslatiliyor...", ""]
         for url, isim in st.session_state.download_cart.items():
             guvenli_isim = re.sub(r'[\\/*?:"<>|]', '', isim).strip()
@@ -241,9 +240,9 @@ if uploaded_file is not None:
             bat_lines.append(f'start "" "C:\\Program Files (x86)\\Internet Download Manager\\IDMan.exe" /d "{url}" /p "C:\\Filmler\\{guvenli_isim}" /f "{guvenli_isim}{uzanti}" /a')
         
         st.sidebar.download_button(
-            label="🟢 IDM Klasörleme Otomasyonu (.bat)",
+            label="IDM İndirme",
             data="\n".join(bat_lines),
-            file_name="IDM_Otomatik_Indir.bat",
+            file_name="IDD_download_job.bat",
             mime="application/x-bat"
         )
     else:
