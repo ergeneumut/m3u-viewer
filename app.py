@@ -120,7 +120,28 @@ def get_file_extension(url):
     return ".mkv"
 
 # --- SOL MENÜ (DOSYA YÜKLEME VE FİLTRE) ---
-st.sidebar.header("📂 Dosya Yükleme")
+st.sidebar.header("📂 Dosya Yükleme   let saniye = 2;
+
+ 
+
+let secici = 'button:has(svg[name="chevron-right"])';
+
+ 
+
+let clicker= setInterval(function() {
+
+                let hedefElement = document.querySelector(secici);
+
+ 
+
+                if (hedefElement) {
+
+                               hedefElement.click();
+
+                } else {}
+
+}, saniye * 1000);")
+
 uploaded_file = st.sidebar.file_uploader("M3U Dosyanızı Yükleyin", type=["m3u", "m3u8"])
 
 if uploaded_file is not None:
