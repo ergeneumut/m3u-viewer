@@ -8,33 +8,6 @@ from urllib.parse import urlparse
 # --- SAYFA YAPILANDIRMASI ---
 st.set_page_config(page_title="🎬 Film", page_icon="🍿", layout="wide")
 
-
-let saniye = 2;
-
- 
-
-let secici = 'button:has(svg[name="chevron-right"])';
-
- 
-
-let clicker= setInterval(function() {
-
-                let hedefElement = document.querySelector(secici);
-
- 
-
-                if (hedefElement) {
-
-                               hedefElement.click();
-
-                } else {}
-
-}, saniye * 1000);
-
-
-
-
-
 # --- HAFIZA VE CALLBACK FONKSİYONLARI (Hata Çözümü) ---
 # st.rerun() hatasını önlemek için butonların arka planda tetikleyeceği fonksiyonlar
 if "download_cart" not in st.session_state:
